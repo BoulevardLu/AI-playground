@@ -1,5 +1,6 @@
 {
   "buildCommand": "echo 'Static HTML project'",
   "installCommand": "echo 'No dependencies needed'",
+  "outputDirectory": ".",
   "public": true
 }
