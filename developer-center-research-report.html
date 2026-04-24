@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>专业开发者工具的设计原则</title>
+<style>
+  /* ==================== Reset & Base ==================== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --color-bg: #f7f6f3;
+    --color-surface: #FFFFFF;
+    --color-surface-alt: #F5F5F7;
+    --color-border: #E5E5E7;
+    --color-border-light: #F0F0F2;
+    --color-text-primary: #1D1D1F;
+    --color-text-secondary: #6E6E73;
+    --color-text-tertiary: #86868B;
+    --color-accent: #0066CC;
+    --color-accent-light: #E8F2FF;
+    --color-success: #16A34A;
+    --color-success-light: #ECFDF5;
+    --color-warning: #D97706;
+    --color-warning-light: #FFFBEB;
+    --color-error: #DC2626;
+    --color-error-light: #FEF2F2;
+    --color-purple: #7C3AED;
+    --color-purple-light: #F3EDFF;
+    --color-code-bg: #0B0B0C;
+    --color-code-text: #E6E6E6;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace;
+    --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
+  }
+
+  html { font-size: 16px; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    line-height: 1.7;
+    letter-spacing: -0.011em;
+  }
+
+  /* ==================== Layout ==================== */
+  .page-wrapper { max-width: 920px; margin: 0 auto; padding: var(--space-2xl) var(--space-lg); }
+
+  /* ==================== Header (Dark Cover) ==================== */
+  .report-header-wrap {
+    background: #0C0C0E;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+  /* Dot-grid pattern overlay */
+  .report-header-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 24px 24px;
+    z-index: 1;
+    pointer-events: none;
+  }
+  /* Subtle gradient glow */
+  .report-header-wrap::after {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,91,255,0.10) 0%, rgba(62,207,142,0.06) 40%, transparent 70%);
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .report-header {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 56px 24px 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+    border-bottom: none;
+  }
+  .report-header .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #A5B4FC;
+    background: rgba(99,91,255,0.15);
+    border: 1px solid rgba(99,91,255,0.25);
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: var(--space-lg);
+  }
+  .report-header h1 {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.22;
+    letter-spacing: -0.03em;
+    color: #F5F5F7;
+    margin-bottom: var(--space-md);
+  }
+  .report-header .subtitle {
+    font-size: 0.98rem;
+    color: #9CA3AF;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  /* Logo Row */
+  .logo-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 28px;
+    margin-top: 32px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .logo-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .logo-item svg { opacity: 0.7; transition: opacity 0.2s; }
+  .logo-item:hover svg { opacity: 1; }
+  .logo-item span {
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: #6B7280;
+    text-transform: uppercase;
+  }
+  .report-meta {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-lg);
+    margin-top: var(--space-md);
+    font-size: 0.78rem;
+    color: #6B7280;
+  }
+  .report-meta span { display: flex; align-items: center; gap: 6px; }
+
+  /* ==================== Metadata Grid ==================== */
+  .meta-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px 32px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .meta-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .meta-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+  }
+  .meta-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+  }
+  .meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.6);
+    white-space: nowrap;
+  }
+  .meta-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ==================== Chapter Illustration ==================== */
+  .chapter-illo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    margin-top: 8px;
+  }
+  .chapter-illo svg {
+    opacity: 0.92;
+  }
+
+  /* ==================== TOC ==================== */
+  .toc {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    margin-bottom: var(--space-2xl);
+    box-shadow: var(--shadow-sm);
+  }
+  .toc h2 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-md);
+  }
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+  }
+  .toc > ol > li {
+    counter-increment: toc;
+    margin-bottom: 2px;
+  }
+  .toc > ol > li > a {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--color-text-primary);
+    font-size: 0.925rem;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+  }
+  .toc > ol > li > a:hover { background: var(--color-surface-alt); color: var(--color-accent); }
+  .toc > ol > li > a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+    width: 28px;
+    flex-shrink: 0;
+  }
+  .toc .toc-sub {
+    list-style: none;
+    margin-left: 40px;
+    margin-bottom: 4px;
+  }
+  .toc .toc-sub li a {
+    display: block;
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    transition: background 0.15s, color 0.15s;
+  }
+  .toc .toc-sub li a:hover { background: var(--color-surface-alt); color: var(--color-accent); }
+
+  /* ==================== Sections ==================== */
+  .section { margin-bottom: var(--space-3xl); }
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-accent);
+    margin-bottom: var(--space-sm);
+  }
+  h2.section-title {
+    font-family: var(--font-display);
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.3;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+  }
+  h3 {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    margin-top: var(--space-xl);
+    margin-bottom: var(--space-md);
+    color: var(--color-text-primary);
+  }
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-sm);
+    color: var(--color-text-primary);
+  }
+  p { margin-bottom: var(--space-md); color: var(--color-text-secondary); font-size: 0.95rem; }
+  p.lead { font-size: 1.05rem; color: var(--color-text-primary); line-height: 1.7; }
+  strong { color: var(--color-text-primary); font-weight: 600; }
+
+  /* ==================== Callout Blocks ==================== */
+  .callout {
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin: var(--space-lg) 0;
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+  .callout-title {
+    font-weight: 650;
+    font-size: 0.85rem;
+    margin-bottom: var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .callout-blue { background: var(--color-accent-light); border-left: 3px solid var(--color-accent); }
+  .callout-blue .callout-title { color: var(--color-accent); }
+  .callout-blue p { color: #1e40af; }
+  .callout-green { background: var(--color-success-light); border-left: 3px solid var(--color-success); }
+  .callout-green .callout-title { color: var(--color-success); }
+  .callout-green p { color: #166534; }
+  .callout-amber { background: var(--color-warning-light); border-left: 3px solid var(--color-warning); }
+  .callout-amber .callout-title { color: var(--color-warning); }
+  .callout-amber p { color: #92400e; }
+  .callout-purple { background: var(--color-purple-light); border-left: 3px solid var(--color-purple); }
+  .callout-purple .callout-title { color: var(--color-purple); }
+  .callout-purple p { color: #5b21b6; }
+  .callout-red { background: var(--color-error-light); border-left: 3px solid var(--color-error); }
+  .callout-red .callout-title { color: var(--color-error); }
+  .callout-red p { color: #991b1b; }
+
+  /* ==================== Tables ==================== */
+  .table-wrap {
+    overflow-x: auto;
+    margin: var(--space-lg) 0;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  thead { background: var(--color-surface-alt); }
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-tertiary);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border-light);
+    color: var(--color-text-secondary);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--color-surface-alt); }
+  td code {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    background: var(--color-surface-alt);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--color-text-primary);
+  }
+
+  /* ==================== Code Blocks ==================== */
+  .code-block {
+    background: var(--color-code-bg);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin: var(--space-lg) 0;
+    overflow-x: auto;
+    position: relative;
+  }
+  .code-block code {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--color-code-text);
+    display: block;
+  }
+  .code-block .lang-tag {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6B7280;
+    font-weight: 500;
+  }
+  .code-keyword { color: #C792EA; }
+  .code-string { color: #C3E88D; }
+  .code-func { color: #82AAFF; }
+  .code-comment { color: #546E7A; }
+  .code-number { color: #F78C6C; }
+
+  /* ==================== Color Swatches ==================== */
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-md);
+    margin: var(--space-lg) 0;
+  }
+  .swatch {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+  .swatch-color {
+    height: 56px;
+    width: 100%;
+  }
+  .swatch-info {
+    padding: 10px 12px;
+  }
+  .swatch-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+  .swatch-hex {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--color-text-tertiary);
+    margin-top: 2px;
+  }
+
+  /* ==================== Comparison Cards ==================== */
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    margin: var(--space-lg) 0;
+  }
+  .comparison-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-sm);
+  }
+  .comparison-card h4 {
+    margin-top: 0;
+    font-size: 0.95rem;
+    margin-bottom: var(--space-sm);
+  }
+  .comparison-card .brand-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 100px;
+    margin-bottom: var(--space-sm);
+  }
+
+  /* ==================== Lists ==================== */
+  ul, ol { margin: var(--space-md) 0 var(--space-md) var(--space-lg); }
+  li { margin-bottom: var(--space-sm); color: var(--color-text-secondary); font-size: 0.925rem; }
+  li strong { color: var(--color-text-primary); }
+
+  /* ==================== Spec Table (Compact) ==================== */
+  .spec-row {
+    display: flex;
+    border-bottom: 1px solid var(--color-border-light);
+    padding: 10px 0;
+    font-size: 0.875rem;
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-label {
+    width: 180px;
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    font-size: 0.825rem;
+  }
+  .spec-value { color: var(--color-text-secondary); flex: 1; }
+
+  /* ==================== Dark Section Demo ==================== */
+  .dark-demo {
+    background: #0A0A0B;
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    margin: var(--space-lg) 0;
+    color: #E5E5E5;
+  }
+  .dark-demo h4 { color: #F5F5F5; margin-top: 0; }
+  .dark-demo p { color: #A1A1AA; }
+  .dark-demo .accent-bar {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+  }
+  .dark-demo .accent-bar span {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* ==================== Principle Card ==================== */
+  .principle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-md);
+    margin: var(--space-lg) 0;
+  }
+  .principle-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .principle-card .icon {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-sm);
+  }
+  .principle-card h4 {
+    font-size: 0.9rem;
+    margin-top: 0;
+    margin-bottom: var(--space-xs);
+  }
+  .principle-card p {
+    font-size: 0.8rem;
+    margin-bottom: 0;
+  }
+
+  /* ==================== Footnotes / References ==================== */
+  .footnotes {
+    margin-top: var(--space-3xl);
+    padding-top: var(--space-xl);
+    border-top: 1px solid var(--color-border);
+  }
+  .footnotes h2 { font-size: 1rem; margin-bottom: var(--space-md); }
+  .footnotes ol { font-size: 0.825rem; color: var(--color-text-tertiary); }
+  .footnotes li { margin-bottom: var(--space-xs); }
+
+  /* ==================== Screenshot Figures ==================== */
+  .screenshot-figure {
+    margin: var(--space-lg) 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
+  }
+  .screenshot-figure img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .screenshot-figure figcaption {
+    padding: 12px 16px;
+    font-size: 0.78rem;
+    color: var(--color-text-tertiary);
+    border-top: 1px solid var(--color-border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .screenshot-figure figcaption .source-tag {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-accent);
+    background: var(--color-accent-light);
+    padding: 2px 8px;
+    border-radius: 100px;
+  }
+  .screenshot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    margin: var(--space-lg) 0;
+  }
+  .screenshot-grid .screenshot-figure { margin: 0; }
+
+  /* ==================== Responsive ==================== */
+  @media (max-width: 768px) {
+    .page-wrapper { padding: var(--space-lg) var(--space-md); }
+    .report-header h1 { font-size: 1.65rem; }
+    .comparison-grid { grid-template-columns: 1fr; }
+    .principle-grid { grid-template-columns: 1fr; }
+    .swatch-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .report-meta { flex-direction: column; align-items: center; }
+    .meta-grid { gap: 16px 20px; }
+  }
+
+  /* ==================== Print ==================== */
+  @media print {
+    body { background: white; }
+    .page-wrapper { max-width: 100%; padding: 0; }
+    .toc { break-after: page; }
+    .section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<!-- BACK BUTTON -->
+<div style="position:fixed;top:16px;left:16px;z-index:999;">
+  <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,255,255,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid #e2e8f0;border-radius:99px;color:#0f172a;text-decoration:none;font-size:13px;font-weight:500;font-family:ui-sans-serif,-apple-system,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.08);transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,1)'" onmouseout="this.style.background='rgba(255,255,255,0.85)'">← 返回首页</a>
+</div>
+
+<!-- ======================== HEADER ======================== -->
+<div class="report-header-wrap">
+<header class="report-header">
+  <div class="tag">Design Principles Report</div>
+  <h1>专业开发者工具的设计原则<br><span style="font-style:normal;color:#9CA3AF;font-weight:400;">基于行业标杆的视觉共性、交互范式与心理模型提炼</span></h1>
+  <p class="subtitle">通过拆解 Vercel、Stripe、Supabase、Linear、Railway、Resend 六款顶级 DevTools 的设计共性，为 Developer Center 重构提供言之有物的理论依据与实践指南。</p>
+
+  <!-- Logo Row -->
+  <div class="logo-row">
+    <div class="logo-item">
+      <svg width="28" height="25" viewBox="0 0 76 65" fill="none"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z" fill="#F5F5F7"/></svg>
+      <span>Vercel</span>
+    </div>
+    <div class="logo-item">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#635BFF"/><path d="M13.3 10.5c0-.83.68-1.17 1.8-1.17 1.61 0 3.64.49 5.25 1.36V6.17A14.08 14.08 0 0015.1 5.3c-3.72 0-6.2 1.94-6.2 5.19 0 5.06 6.97 4.25 6.97 6.43 0 .98-.86 1.3-2.05 1.3-1.77 0-4.04-.73-5.83-1.71v4.58a14.8 14.8 0 005.83 1.21c3.82 0 6.44-1.89 6.44-5.18-.01-5.47-7.01-4.49-7.01-6.62z" fill="#fff"/></svg>
+      <span>Stripe</span>
+    </div>
+    <div class="logo-item">
+      <svg width="22" height="28" viewBox="0 0 109 113" fill="none"><path d="M63.7 110.3c-2.6 3.3-8.1 1.5-8.2-2.7l-1.2-56.8h38.7c7 0 10.8 8.2 6.3 13.5L63.7 110.3z" fill="#3ECF8E"/><path d="M45.3 2.7c2.6-3.3 8.1-1.5 8.2 2.7l.5 56.8H16.3c-7 0-10.8-8.2-6.3-13.5L45.3 2.7z" fill="#3ECF8E"/></svg>
+      <span>Supabase</span>
+    </div>
+    <div class="logo-item">
+      <svg width="28" height="28" viewBox="0 0 100 100" fill="none"><path d="M1.22 61.5a48.97 48.97 0 0037.28 37.28L1.22 61.5zM.09 49.18a49.04 49.04 0 0012.44 38.29L.09 49.18zM4.21 79.79A49.02 49.02 0 0020.2 95.79L4.21 79.79zM38.5 98.78a48.98 48.98 0 0012.32-1.13L12.35 59.18a48.98 48.98 0 00-1.13 12.32L38.5 98.78zM14.22 55.26l30.52 30.52A48.77 48.77 0 0060.5 99.2a49 49 0 00-8.88-94.7L14.22 55.26zM96.05 60.5A49 49 0 0055.5 1.08L96.05 60.5z" fill="#5E6AD2"/></svg>
+      <span>Linear</span>
+    </div>
+    <div class="logo-item">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#13111A"/><path d="M7 10h14M7 14h14M7 18h14" stroke="#A855F7" stroke-width="1.8" stroke-linecap="round"/><path d="M10 6v3m4-3v3m4-3v3M10 19v3m4-3v3m4-3v3" stroke="#A855F7" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <span>Railway</span>
+    </div>
+    <div class="logo-item">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#0F0F10"/><path d="M8 8h5.5a3.5 3.5 0 010 7H10v5H8V8z" fill="#F5F5F7"/><path d="M13 15l4.5 5H15l-4-4.5" fill="#F5F5F7"/></svg>
+      <span>Resend</span>
+    </div>
+  </div>
+
+  <div class="report-meta">
+    <span>2026.04</span>
+    <span style="color:#3F3F46;">|</span>
+    <span>基于 Refero 数据库 + 15 张真实产品截图</span>
+  </div>
+
+  <!-- Tech Stack Metadata -->
+  <div class="meta-grid">
+    <div class="meta-group">
+      <div class="meta-label">调研竞品</div>
+      <div class="meta-badges">
+        <span class="meta-badge"><span class="meta-dot" style="background:#000;"></span>Vercel</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#635BFF;"></span>Stripe</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#3ECF8E;"></span>Supabase</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#5E6AD2;"></span>Linear</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#A855F7;"></span>Railway</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#fff;"></span>Resend</span>
+      </div>
+    </div>
+    <div class="meta-group">
+      <div class="meta-label">数据来源</div>
+      <div class="meta-badges">
+        <span class="meta-badge"><span class="meta-dot" style="background:#0ea5e9;"></span>Refero.design</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#6b57ff;"></span>官方文档</span>
+      </div>
+    </div>
+    <div class="meta-group">
+      <div class="meta-label">生成时间</div>
+      <div class="meta-badges">
+        <span class="meta-badge">2026.04.22</span>
+      </div>
+    </div>
+    <div class="meta-group">
+      <div class="meta-label">Model</div>
+      <div class="meta-badges">
+        <span class="meta-badge"><span class="meta-dot" style="background:#d97706;"></span>Claude Sonnet 4</span>
+      </div>
+    </div>
+    <div class="meta-group">
+      <div class="meta-label">IDE</div>
+      <div class="meta-badges">
+        <span class="meta-badge"><span class="meta-dot" style="background:#10b981;"></span>Qoder CLI</span>
+      </div>
+    </div>
+    <div class="meta-group">
+      <div class="meta-label">MCP</div>
+      <div class="meta-badges">
+        <span class="meta-badge"><span class="meta-dot" style="background:#6b57ff;"></span>Refero MCP</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#2563eb;"></span>Preview MCP</span>
+      </div>
+    </div>
+    <div class="meta-group">
+      <div class="meta-label">Skills</div>
+      <div class="meta-badges">
+        <span class="meta-badge"><span class="meta-dot" style="background:#2f9e65;"></span>deep-research</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:#2f9e65;"></span>frontend-design</span>
+      </div>
+    </div>
+  </div>
+</header>
+</div>
+
+<div class="page-wrapper">
+
+<!-- ======================== CONTEXT ======================== -->
+<section class="section" id="context">
+  <div class="section-label">Context / 上下文</div>
+  <h2 class="section-title">研究背景与核心问题</h2>
+  <p class="lead">
+    当前开发者中心（Developer Center）的体验已无法满足现代开发者对<strong>效率、一致性与专业感</strong>的预期。本报告通过对 Vercel、Stripe、Supabase、Linear、Railway、Resend 等六家行业标杆产品的系统性拆解，从视觉共性、交互范式与开发者心理模型三个维度，提炼出可落地的设计准则。
+  </p>
+  <p>
+    本文解决的核心问题是：<strong>为什么开发者偏好某类设计？</strong> 以及 <strong>如何将这些偏好转化为我们 Developer Center 重构的具体设计决策？</strong> 每一个分析点都基于真实产品的界面截图与设计系统数据，拒绝空洞描述。
+  </p>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:24px;">
+    <div style="background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:var(--space-lg);">
+      <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--color-text-tertiary); margin-bottom:12px;">业务背景</div>
+      <ul style="font-size:0.85rem; margin:0; padding-left:18px;">
+        <li style="margin-bottom:8px;"><strong>Worldfirst Developer Center</strong> 是面向外贸商家和开发者的 API 接入平台，涵盖外汇产品、支付 API、Webhook 管理等核心功能。</li>
+        <li style="margin-bottom:8px;">当前 Dev Center 的视觉语言和交互模式落后于行业标杆，开发者在文档导航、代码集成和 Onboarding 环节的体验存在明显摩擦。</li>
+        <li style="margin-bottom:0;"><strong>CY26 重构目标：</strong>对标 Stripe、Vercel 等一线开发者平台，建立专业级的设计标准和交互体验。</li>
+      </ul>
+    </div>
+    <div style="background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:var(--space-lg);">
+      <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--color-text-tertiary); margin-bottom:12px;">调研方法论</div>
+      <ul style="font-size:0.85rem; margin:0; padding-left:18px;">
+        <li style="margin-bottom:8px;"><strong>数据来源：</strong>基于 Refero.design 产品截图库 + 官方文档站直接分析，共计 15+ 张真实产品截图。</li>
+        <li style="margin-bottom:8px;"><strong>分析维度：</strong>视觉共性（色彩、排版、空间）、交互范式（导航、效率工具、Onboarding）、心理模型（认知负荷、反馈系统、效率哲学）。</li>
+        <li style="margin-bottom:0;"><strong>产出目标：</strong>7 条可直接执行的设计准则 + 完整技术规格速查表，为 Dev Center 重构提供决策框架。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== TOC ======================== -->
+<nav class="toc" id="toc">
+  <h2>目录 / Table of Contents</h2>
+  <ol>
+    <li><a href="#ch1">视觉共性分析 &mdash; Visual Patterns</a></li>
+    <ul class="toc-sub">
+      <li><a href="#ch1-1">1.1 色彩平衡与深色模式策略</a></li>
+      <li><a href="#ch1-2">1.2 栅格与空间：信息密度的间距逻辑</a></li>
+      <li><a href="#ch1-3">1.3 字体工程：双字体栈排版规范</a></li>
+    </ul>
+    <li><a href="#ch2">交互范式分析 &mdash; Interaction Paradigms</a></li>
+    <ul class="toc-sub">
+      <li><a href="#ch2-1">2.1 导航逻辑：多层级文档与全局搜索</a></li>
+      <li><a href="#ch2-2">2.2 效率工具：代码复制、参数预览与 API Playground</a></li>
+      <li><a href="#ch2-3">2.3 Onboarding 流程的减法设计</a></li>
+    </ul>
+    <li><a href="#ch3">心理模型推导 &mdash; Mental Models</a></li>
+    <ul class="toc-sub">
+      <li><a href="#ch3-1">3.1 认知负荷最小化原则</a></li>
+      <li><a href="#ch3-2">3.2 确定性反馈系统</a></li>
+      <li><a href="#ch3-3">3.3 效率优于装饰</a></li>
+    </ul>
+    <li><a href="#ch4">标杆产品横向对比矩阵</a></li>
+    <li><a href="#ch5">设计准则总结 &mdash; Design Principles</a></li>
+    <li><a href="#ch6">参考来源</a></li>
+  </ol>
+</nav>
+
+<!-- ======================== CHAPTER 1 ======================== -->
+<section class="section" id="ch1">
+  <!-- Ch1 Illustration: Eye/Palette - Visual Patterns -->
+  <div class="chapter-illo">
+    <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- paint palette -->
+      <ellipse cx="54" cy="44" rx="36" ry="28" fill="#F3EDFF" stroke="#C4B5FD" stroke-width="1.5"/>
+      <!-- color dots -->
+      <circle cx="38" cy="34" r="6" fill="#635BFF" opacity="0.8"/>
+      <circle cx="54" cy="28" r="5" fill="#3ECF8E" opacity="0.8"/>
+      <circle cx="68" cy="34" r="5.5" fill="#F59E0B" opacity="0.8"/>
+      <circle cx="42" cy="52" r="4.5" fill="#EC4899" opacity="0.8"/>
+      <circle cx="62" cy="52" r="5" fill="#1D1D1F" opacity="0.6"/>
+      <!-- palette hole -->
+      <circle cx="72" cy="46" r="7" fill="#FAFAFA" stroke="#C4B5FD" stroke-width="1"/>
+      <!-- brush -->
+      <line x1="86" y1="18" x2="100" y2="4" stroke="#6E6E73" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M83 20c1-2 4-3 6-2s2 4 0 5-5-1-6-3z" fill="#635BFF" opacity="0.7"/>
+      <!-- sparkle -->
+      <path d="M106 16l2-5 2 5 5 2-5 2-2 5-2-5-5-2z" fill="#F59E0B" opacity="0.5"/>
+    </svg>
+  </div>
+
+  <div class="section-label">Chapter 01</div>
+  <h2 class="section-title">视觉共性分析 &mdash; Visual Patterns</h2>
+
+  <!-- 1.1 -->
+  <h3 id="ch1-1">1.1 色彩平衡与深色模式策略</h3>
+
+  <p>
+    在分析的六款产品中，<strong>深色模式（Dark Mode）已不是可选项，而是默认界面</strong>。Vercel 文档页背景为纯黑 <code>#000000</code>，Linear 使用极深灰 <code>#121212</code>，Resend 暗色模式底色为 <code>#0B0B0C</code>。这一选择不是审美偏好，而是基于开发者长时间编码环境的视觉疲劳研究结论。
+  </p>
+
+  <div class="screenshot-grid">
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/resend.com/desktop/9a768c6f-1cd4-432f-8065-43d3f432ad04_preview.jpg" alt="Resend Dark Mode Onboarding" loading="lazy">
+      <figcaption>Resend &mdash; 暗色主题 Onboarding，展示灰度分层与极简强调色 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/enode.com/desktop/8286bbb2-f706-4126-b893-59e5068b856b_preview.jpg" alt="Enode Developer Dashboard Dark Mode" loading="lazy">
+      <figcaption>Enode Developers &mdash; 深色仪表盘，绿色强调色仅用于状态指示 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+  </div>
+
+  <h4>深色模式色彩分层策略</h4>
+  <p>
+    所有标杆产品的深色模式都遵循一个核心原则：<strong>通过灰度层级制造空间深度，而非依赖边框分割</strong>。以 Resend 为例，其暗色方案中至少使用了 5 个灰度层级：
+  </p>
+
+  <div class="dark-demo">
+    <h4>Resend 暗色分层示范</h4>
+    <p>从全局背景到前景元素，灰度逐级递增，创造无边框的层次感：</p>
+    <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 100px;">
+        <div style="height: 40px; background: #070708; border-radius: 6px; margin-bottom: 4px;"></div>
+        <div style="font-size: 0.7rem; font-family: var(--font-mono); color: #71717A;">Sidebar #070708</div>
+      </div>
+      <div style="flex: 1; min-width: 100px;">
+        <div style="height: 40px; background: #0B0B0C; border-radius: 6px; margin-bottom: 4px;"></div>
+        <div style="font-size: 0.7rem; font-family: var(--font-mono); color: #71717A;">Page BG #0B0B0C</div>
+      </div>
+      <div style="flex: 1; min-width: 100px;">
+        <div style="height: 40px; background: #0E0F10; border-radius: 6px; margin-bottom: 4px;"></div>
+        <div style="font-size: 0.7rem; font-family: var(--font-mono); color: #71717A;">Panel #0E0F10</div>
+      </div>
+      <div style="flex: 1; min-width: 100px;">
+        <div style="height: 40px; background: #141516; border-radius: 6px; margin-bottom: 4px;"></div>
+        <div style="font-size: 0.7rem; font-family: var(--font-mono); color: #71717A;">Divider #141516</div>
+      </div>
+      <div style="flex: 1; min-width: 100px;">
+        <div style="height: 40px; background: #1F2123; border-radius: 6px; margin-bottom: 4px;"></div>
+        <div style="font-size: 0.7rem; font-family: var(--font-mono); color: #71717A;">Card #1F2123</div>
+      </div>
+    </div>
+  </div>
+
+  <h4>强调色（Accent Color）的克制使用</h4>
+  <p>
+    标杆产品的强调色运用极为克制。强调色仅出现在三类场景中：<strong>状态指示</strong>（成功/错误/警告）、<strong>主操作按钮</strong>、<strong>代码语法高亮</strong>。
+  </p>
+
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background: #000000;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Vercel Black</div>
+        <div class="swatch-hex">#000000</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #635BFF;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Stripe Blurple</div>
+        <div class="swatch-hex">#635BFF</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #3ECF8E;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Supabase Green</div>
+        <div class="swatch-hex">#3ECF8E</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #5E6AD2;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Linear Indigo</div>
+        <div class="swatch-hex">#5E6AD2</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #A855F7;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Railway Purple</div>
+        <div class="swatch-hex">#A855F7</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #FFFFFF; border: 1px solid #E5E5E5;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Resend Mono</div>
+        <div class="swatch-hex">#FFFFFF / #000000</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <div class="callout-title">&#9670; 设计准则 #1 &mdash; 克制的色彩经济学</div>
+    <p>整个界面仅允许一种强调色。强调色面积占比不超过界面总面积的 5%。在深色模式下，使用灰度的微妙变化（&Delta;8-15 在 0-255 范围内）来区分层级，而非边框或分割线。Stripe 的可访问色彩系统证明：任何两个色阶差 &ge;5 级时，即可保证 WCAG 4.5:1 的小字对比度标准。</p>
+  </div>
+
+  <!-- 1.2 -->
+  <h3 id="ch1-2">1.2 栅格与空间：信息密度的间距逻辑</h3>
+
+  <p>
+    开发者工具面临一个独特的设计张力：<strong>需要在单屏内展示大量技术信息，同时维持视觉的可扫描性</strong>。标杆产品给出的答案并非简单的"留白"或"紧凑"，而是一种分区间距系统（Zoned Spacing System）。
+  </p>
+
+  <div class="screenshot-grid">
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/vercel.com/desktop/d1dbf64d-eea1-4ad9-a58b-b6dc9ea5dad5_preview.jpg" alt="Vercel Documentation Three Column Layout" loading="lazy">
+      <figcaption>Vercel Docs &mdash; 经典三栏布局：左导航 + 中内容 + 右锚点 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/resend.com/desktop/811931cc-89be-4e58-94a8-dc19530022a0_preview.jpg" alt="Resend API Reference Three Column" loading="lazy">
+      <figcaption>Resend API Reference &mdash; 三栏式：左导航 + 中参数说明 + 右代码示例 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>产品</th>
+          <th>布局结构</th>
+          <th>侧栏宽度</th>
+          <th>内容区最大宽</th>
+          <th>区块间距</th>
+          <th>元素间距</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Vercel Docs</strong></td>
+          <td>三栏（Left Nav + Content + Right TOC）</td>
+          <td>~250px</td>
+          <td>~900px</td>
+          <td>48-64px</td>
+          <td>16-24px</td>
+        </tr>
+        <tr>
+          <td><strong>Stripe Docs</strong></td>
+          <td>三栏（同上）</td>
+          <td>~240px</td>
+          <td>~880px</td>
+          <td>48px</td>
+          <td>16-20px</td>
+        </tr>
+        <tr>
+          <td><strong>Resend Onboard</strong></td>
+          <td>两栏（Sidebar + Stepper Content）</td>
+          <td>~220px</td>
+          <td>~980px</td>
+          <td>32-48px</td>
+          <td>16-20px</td>
+        </tr>
+        <tr>
+          <td><strong>Linear App</strong></td>
+          <td>两栏（Sidebar + Content）</td>
+          <td>~220px</td>
+          <td>流式填充</td>
+          <td>24-32px</td>
+          <td>8-16px</td>
+        </tr>
+        <tr>
+          <td><strong>Supabase Dashboard</strong></td>
+          <td>两栏（Sidebar + Content）</td>
+          <td>~260px</td>
+          <td>~1100px</td>
+          <td>32-48px</td>
+          <td>16-24px</td>
+        </tr>
+        <tr>
+          <td><strong>Cohere Playground</strong></td>
+          <td>两栏等宽分割（Input + Code/Response）</td>
+          <td>N/A</td>
+          <td>50/50 分割</td>
+          <td>24-32px</td>
+          <td>12-16px</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>分区间距的逻辑</h4>
+  <p>
+    观察这些数据，可以发现一个一致的模式：
+  </p>
+  <ul>
+    <li><strong>区域间（Sections）</strong>: 使用 <code>32-64px</code> 的大间距制造视觉呼吸，帮助开发者快速定位信息区块。Vercel 文档在段落之间使用的间距大于 Linear 操作面板，因为文档属于阅读场景，而后者是操作场景。</li>
+    <li><strong>元素间（Elements）</strong>: 保持 <code>8-24px</code> 的紧凑间距维持信息关联性。Linear 在列表项之间仅用 8px 间距，因为同一列表中的 issue 需要被视为一个整体快速扫描。</li>
+    <li><strong>侧栏固定宽度</strong>: 所有产品的侧栏宽度集中在 <code>220-260px</code>，这不是巧合 &mdash; 这是恰好容纳 20-25 个英文字符的宽度，足以显示大多数导航标签。</li>
+  </ul>
+
+  <div class="callout callout-green">
+    <div class="callout-title">&#9670; 设计准则 #2 &mdash; 场景决定密度</div>
+    <p>不存在统一的"最佳间距"。文档阅读场景使用宽松间距（section gap 48-64px）；操作面板/Dashboard 使用紧凑间距（section gap 24-32px）。但所有场景下，侧栏导航宽度保持 220-260px 的固定范围，内容区最大宽度不超过 1100px。</p>
+  </div>
+
+  <!-- 1.3 -->
+  <h3 id="ch1-3">1.3 字体工程：双字体栈排版规范</h3>
+
+  <p>
+    开发者界面中存在一个独特的排版需求：<strong>自然语言（文档说明）与形式语言（代码、API 路径）必须在同一页面中和谐共存</strong>。所有标杆产品都采用了"双字体栈"策略。
+  </p>
+
+  <figure class="screenshot-figure">
+    <img src="https://images.refero.design/screenshots/cal.com/desktop/91241a17-4b90-43d7-9d43-9bd567b21d66_preview.jpg" alt="Cal.com Developer Documentation Typography" loading="lazy">
+    <figcaption>Cal.com Docs &mdash; Inter 字体 + 等宽代码字体的双栈排版，侧栏导航层级清晰 <span class="source-tag">Refero</span></figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>产品</th>
+          <th>UI / 阅读字体</th>
+          <th>代码字体</th>
+          <th>正文字号</th>
+          <th>代码字号</th>
+          <th>行高</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Vercel</strong></td>
+          <td>Geist Sans (System UI fallback)</td>
+          <td>Geist Mono</td>
+          <td>16px</td>
+          <td>14px</td>
+          <td>1.5-1.7</td>
+        </tr>
+        <tr>
+          <td><strong>Stripe</strong></td>
+          <td>-apple-system / System UI</td>
+          <td>Source Code Pro</td>
+          <td>16px</td>
+          <td>14px</td>
+          <td>1.5-1.6</td>
+        </tr>
+        <tr>
+          <td><strong>Resend</strong></td>
+          <td>Inter / ABC Favorit</td>
+          <td>Commit Mono</td>
+          <td>14-16px</td>
+          <td>13-14px</td>
+          <td>1.4-1.6</td>
+        </tr>
+        <tr>
+          <td><strong>Linear</strong></td>
+          <td>Inter</td>
+          <td>System Monospace</td>
+          <td>14px</td>
+          <td>13px</td>
+          <td>1.4-1.5</td>
+        </tr>
+        <tr>
+          <td><strong>Supabase</strong></td>
+          <td>Custom Sans / Inter</td>
+          <td>Source Code Pro</td>
+          <td>15-16px</td>
+          <td>13-14px</td>
+          <td>1.5-1.6</td>
+        </tr>
+        <tr>
+          <td><strong>Cal.com Docs</strong></td>
+          <td>Inter</td>
+          <td>System Monospace</td>
+          <td>14-16px</td>
+          <td>14px</td>
+          <td>1.5</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>排版规范的关键发现</h4>
+  <ul>
+    <li><strong>正文永远大于代码 1-2px</strong>：这不是随意选择。等宽字体因字形宽度一致，在相同字号下视觉感知比比例字体更大，因此需要缩小 1-2px 来保持视觉一致性。</li>
+    <li><strong>Inter 是事实标准</strong>：在六款产品中，四款使用了 Inter 或其变体作为 UI 字体。Inter 的 x-height 高、数字宽度一致（表格友好）、字形清晰度在小字号下依然优异。</li>
+    <li><strong>行高与场景关联</strong>：文档场景使用 1.6-1.7 的宽松行高以提升长文可读性；操作面板使用 1.4-1.5 的紧凑行高以增加信息密度。</li>
+    <li><strong>内联代码（Inline Code）的处理</strong>：所有产品在正文中嵌入的代码片段都使用浅灰色背景 + 小圆角 + 等宽字体呈现，形成与正文的视觉区分。Vercel 使用 <code style="background:#F5F5F5; padding:2px 6px; border-radius:4px; font-size:0.85em;">#F7F7F8</code> 作为内联代码背景色。</li>
+  </ul>
+
+  <div class="callout callout-purple">
+    <div class="callout-title">&#9670; 设计准则 #3 &mdash; 双字体栈是刚需</div>
+    <p>UI 字体选择 Inter 或系统字体栈（System UI），代码字体选择 JetBrains Mono / Fira Code / Source Code Pro。正文 14-16px，代码 13-14px，差值 1-2px。文档行高 1.6，操作面板行高 1.4。所有 inline code 使用浅色背景 + 等宽字体 + 4px border-radius。</p>
+  </div>
+</section>
+
+<!-- ======================== CHAPTER 2 ======================== -->
+<section class="section" id="ch2">
+  <!-- Ch2 Illustration: Cursor & Code Window - Interaction -->
+  <div class="chapter-illo">
+    <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- browser window -->
+      <rect x="10" y="10" width="72" height="56" rx="8" fill="#E8F2FF" stroke="#93C5FD" stroke-width="1.5"/>
+      <!-- title bar dots -->
+      <circle cx="22" cy="20" r="2.5" fill="#F87171" opacity="0.7"/>
+      <circle cx="30" cy="20" r="2.5" fill="#FBBF24" opacity="0.7"/>
+      <circle cx="38" cy="20" r="2.5" fill="#34D399" opacity="0.7"/>
+      <!-- code lines -->
+      <rect x="20" y="30" width="28" height="3" rx="1.5" fill="#93C5FD" opacity="0.6"/>
+      <rect x="20" y="37" width="40" height="3" rx="1.5" fill="#6366F1" opacity="0.4"/>
+      <rect x="20" y="44" width="22" height="3" rx="1.5" fill="#93C5FD" opacity="0.5"/>
+      <rect x="20" y="51" width="34" height="3" rx="1.5" fill="#6366F1" opacity="0.3"/>
+      <!-- cursor -->
+      <path d="M88 30l-5 18 5-5 7 2z" fill="#1D1D1F" opacity="0.75"/>
+      <!-- click ripple -->
+      <circle cx="86" cy="32" r="8" fill="none" stroke="#6366F1" stroke-width="1" opacity="0.4"/>
+      <circle cx="86" cy="32" r="14" fill="none" stroke="#6366F1" stroke-width="0.8" opacity="0.2"/>
+      <!-- CMD+K badge -->
+      <rect x="88" y="54" width="28" height="16" rx="4" fill="#1D1D1F" opacity="0.8"/>
+      <text x="95" y="65" font-family="system-ui,sans-serif" font-size="8" font-weight="600" fill="#F5F5F7" letter-spacing="0.5">&#x2318;K</text>
+    </svg>
+  </div>
+
+  <div class="section-label">Chapter 02</div>
+  <h2 class="section-title">交互范式分析 &mdash; Interaction Paradigms</h2>
+
+  <!-- 2.1 -->
+  <h3 id="ch2-1">2.1 导航逻辑：多层级文档与全局搜索</h3>
+
+  <p>
+    开发者文档的导航是整个 Developer Center 体验的骨架。标杆产品在导航设计上呈现出高度一致的模式：
+  </p>
+
+  <h4>三栏文档布局（Documentation Triptych）</h4>
+  <p>
+    Vercel 和 Stripe 的文档页采用了相同的三栏架构：
+  </p>
+
+  <figure class="screenshot-figure">
+    <img src="https://images.refero.design/screenshots/vercel.com/desktop/43ae9e13-5446-46d6-bb22-72fe89bd6c17_preview.jpg" alt="Vercel API Reference Documentation" loading="lazy">
+    <figcaption>Vercel API Reference &mdash; 左侧分组导航 + 中间详细文档 + HTTP 方法彩色 Badge，深色背景代码块 <span class="source-tag">Refero</span></figcaption>
+  </figure>
+  <ul>
+    <li><strong>左栏 &mdash; 全局导航</strong>：可折叠的分组式目录树，使用缩进和图标区分层级。Vercel 的左栏使用箭头图标表示可展开/折叠，选中项使用浅灰色背景高亮 <code>#F0F0F0</code>（亮色模式）或深灰 <code>#222222</code>（暗色模式）。</li>
+    <li><strong>中栏 &mdash; 正文内容</strong>：线性排列的内容区，包含标题层级、段落、代码块、表格和卡片组件。宽度约 880-1000px。</li>
+    <li><strong>右栏 &mdash; 页内锚点</strong>：粘性定位（sticky）的"On this page"导航，提供当前页面内部的快速跳转。这一栏在移动端消失，在桌面端提供额外的定位效率。</li>
+  </ul>
+
+  <h4>Command+K 全局搜索面板</h4>
+  <p>
+    全局搜索（Command Palette）已成为开发者工具的标配交互模式。Linear 将其打造为核心导航入口，用户可以通过 <code>CMD+K</code> 快速调出搜索面板，使用模糊匹配（Fuzzy Matching）跳转到任意功能或页面。
+  </p>
+
+  <figure class="screenshot-figure">
+    <img src="https://images.refero.design/screenshots/linear.app/desktop/712eb5a2-2628-483d-a209-530be74d32e2_preview.jpg" alt="Linear Dark Mode Changelog" loading="lazy">
+    <figcaption>Linear &mdash; 深色主题界面 + Changelog 弹窗。左侧紧凑侧栏导航，中心内容覆盖层。极简视觉语言 <span class="source-tag">Refero</span></figcaption>
+  </figure>
+
+  <div class="comparison-grid">
+    <div class="comparison-card">
+      <div class="brand-tag" style="background: #000; color: #fff;">Vercel</div>
+      <h4>搜索即导航</h4>
+      <p style="font-size:0.85rem;">Vercel 文档顶部的搜索栏占据显著位置，placeholder 为"Search documentation..."。搜索结果即时呈现，支持按文档类型过滤。搜索不仅查找文字，还理解 API 端点路径。</p>
+    </div>
+    <div class="comparison-card">
+      <div class="brand-tag" style="background: #5E6AD2; color: #fff;">Linear</div>
+      <h4>Command Palette 即操作中心</h4>
+      <p style="font-size:0.85rem;">Linear 的 CMD+K 不仅是搜索，更是操作入口。用户可以搜索 issue、创建任务、切换项目、调整状态 &mdash; 全部在一个面板中完成，无需鼠标点击。面板中同时展示快捷键提示。</p>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <div class="callout-title">&#9670; 设计准则 #4 &mdash; CMD+K 是基础设施</div>
+    <p>全局搜索面板不是"附加功能"，而是应被视为核心导航基础设施。它解决了"特性越多，导航越复杂"的矛盾 &mdash; 将所有功能收敛到一个模糊搜索入口，保持界面简洁的同时不牺牲功能可达性。使用 cmdk 等成熟库可快速实现。</p>
+  </div>
+
+  <!-- 2.2 -->
+  <h3 id="ch2-2">2.2 效率工具：代码复制、参数预览与 API Playground</h3>
+
+  <p>
+    开发者在 Developer Center 中的核心操作路径是：<strong>阅读文档 &rarr; 复制代码片段 &rarr; 在本地环境中验证</strong>。标杆产品在这条路径上的每个节点都做了精细的效率优化。
+  </p>
+
+  <h4>即时复制（One-Click Copy）</h4>
+  <p>
+    所有标杆产品的代码块右上角都配备了复制按钮。Resend 在 onboarding 流程中甚至在 API Key 字段旁直接嵌入了复制和可见性切换按钮。关键细节：
+  </p>
+  <ul>
+    <li><strong>复制按钮位置</strong>：始终位于代码块右上角，使用小图标按钮（28-32px），悬停时微妙提亮。</li>
+    <li><strong>反馈机制</strong>：点击后图标变为勾选标记 &check; 并持续 1.5-2 秒，或显示"Copied"tooltip。这种<strong>确定性反馈</strong>至关重要。</li>
+    <li><strong>Resend 特色</strong>：其代码卡片支持 11 种语言切换（Node.js, PHP, Python, Ruby, Go, Rust, Elixir, Java, .NET, cURL, Copy for AI），且包含一个"Copy for AI"选项，为 AI 辅助开发场景做了前瞻设计。</li>
+  </ul>
+
+  <h4>多语言代码标签（Language Tabs）</h4>
+  <p>
+    代码示例的多语言呈现已成为标准。关键交互模式：
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>产品</th>
+          <th>语言切换方式</th>
+          <th>默认语言</th>
+          <th>代码块背景</th>
+          <th>语法高亮</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Resend</strong></td>
+          <td>Pill 形标签行，水平排列</td>
+          <td>Node.js</td>
+          <td><code>#0B0B0C</code></td>
+          <td>关键词紫/字符串绿/函数蓝</td>
+        </tr>
+        <tr>
+          <td><strong>OpenAI</strong></td>
+          <td>简洁文本标签</td>
+          <td>Python</td>
+          <td><code>#EDEDED</code> (浅)</td>
+          <td>绿/蓝/黑</td>
+        </tr>
+        <tr>
+          <td><strong>Cohere</strong></td>
+          <td>大写文本标签 + 下划线</td>
+          <td>Node</td>
+          <td><code>#121212</code></td>
+          <td>白/灰 为主</td>
+        </tr>
+        <tr>
+          <td><strong>TwelveLabs</strong></td>
+          <td>独立 SDK 卡片</td>
+          <td>Python &amp; JS 并列</td>
+          <td>浅灰</td>
+          <td>标准高亮</td>
+        </tr>
+        <tr>
+          <td><strong>Vercel</strong></td>
+          <td>代码块内嵌标签</td>
+          <td>N/A</td>
+          <td><code>#1E1E1E</code></td>
+          <td>绿/蓝/紫</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>API Playground &mdash; 实时交互验证</h4>
+  <p>
+    Cohere 的 Playground 和 Anthropic 的 Workbench 代表了最高级别的 API 交互体验：左右分栏布局，左侧为参数输入面板，右侧为实时代码生成 + 响应展示。这种"所见即所得"的模式将文档从静态阅读物升级为交互式工具。
+  </p>
+
+  <div class="screenshot-grid">
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/cohere.com/desktop/99e8ee38-1b6d-4e85-83f3-5e0f85ba7150_preview.jpg" alt="Cohere API Playground" loading="lazy">
+      <figcaption>Cohere Playground &mdash; 左右等宽分割：参数配置 + 多语言代码编辑器 + 响应面板 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/anthropic.com/desktop/74db7880-24e5-411b-933b-b5af084b8945_preview.jpg" alt="Anthropic Workbench Evaluate Mode" loading="lazy">
+      <figcaption>Anthropic Workbench &mdash; 双面板对比评估模式，支持多版本 prompt 并排对比 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+  </div>
+
+  <figure class="screenshot-figure">
+    <img src="https://images.refero.design/screenshots/cartesia.ai/desktop/1cbf6f6c-25d5-4de8-8402-c9db639ad831_preview.jpg" alt="Cartesia API Try with Code" loading="lazy">
+    <figcaption>Cartesia &mdash; "Try with API" 面板：API Key 输入 + 语法高亮 cURL 代码块 + 一键执行按钮，侧栏导航紧凑排列 <span class="source-tag">Refero</span></figcaption>
+  </figure>
+
+  <div class="callout callout-green">
+    <div class="callout-title">&#9670; 设计准则 #5 &mdash; 代码片段是一等公民</div>
+    <p>代码块必须具备：(1) 一键复制 + 确定性视觉反馈；(2) 多语言标签切换，语言列表按受众优先级排序；(3) 深色背景 + 语法高亮，即使在浅色主题下代码块也保持深色（Stripe 和 Vercel 均如此处理）。代码不是内容的附属品，而是开发者的主要消费对象。</p>
+  </div>
+
+  <!-- 2.3 -->
+  <h3 id="ch2-3">2.3 Onboarding 流程的减法设计</h3>
+
+  <p>
+    Resend 的 onboarding 流程是此次调研中最值得借鉴的案例。其设计哲学可以概括为：<strong>将"发送第一封邮件"所需的操作压缩到最少步骤，在单一页面内完成</strong>。
+  </p>
+
+  <h4>Resend Onboarding 流程拆解</h4>
+
+  <figure class="screenshot-figure">
+    <img src="https://images.refero.design/screenshots/resend.com/desktop/1ee7c71b-9fa5-4d26-a597-db0b0b7b0f57_preview.jpg" alt="Resend Light Mode Onboarding" loading="lazy">
+    <figcaption>Resend Onboarding (Light) &mdash; 两步式垂直 Stepper：绿色 API Key 卡片 + 多语言代码块 + 一键 Send 按钮 <span class="source-tag">Refero</span></figcaption>
+  </figure>
+
+  <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-lg); margin: var(--space-lg) 0;">
+    <div style="display: flex; gap: 24px;">
+      <div style="display: flex; flex-direction: column; align-items: center; width: 56px; flex-shrink: 0;">
+        <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--color-success); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 700;">1</div>
+        <div style="flex: 1; width: 2px; background: var(--color-success); margin: 8px 0;"></div>
+        <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--color-text-primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 700;">2</div>
+      </div>
+      <div style="flex: 1;">
+        <div style="margin-bottom: 32px;">
+          <h4 style="margin-top: 0; color: var(--color-text-primary);">Step 1 &mdash; Add an API Key</h4>
+          <p style="font-size: 0.85rem;">淡绿背景卡片中直接展示已生成的 API Key，旁边配有复制和可见性切换按钮。无需用户手动创建 &mdash; 系统自动生成，降低操作步骤数。</p>
+        </div>
+        <div>
+          <h4 style="margin-top: 0; color: var(--color-text-primary);">Step 2 &mdash; Send an Email</h4>
+          <p style="font-size: 0.85rem;">白色卡片内嵌多语言代码标签 + 深色代码块 + 一键"Send email"按钮。代码中已预填 API Key，用户无需手动粘贴。点击发送后，即时显示成功 toast 并展示后续步骤。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>
+    OpenAI 的开发者 onboarding 也采用了类似策略：在注册完成后的页面中直接展示 API Key + Python 代码片段 + "Continue"按钮，实现<strong>从注册到第一次 API 调用的最短路径</strong>。
+  </p>
+
+  <figure class="screenshot-figure">
+    <img src="https://images.refero.design/screenshots/openai.com/desktop/4e371252-3d41-48d1-ab0c-d54e136313bd_preview.jpg" alt="OpenAI Developer Onboarding" loading="lazy">
+    <figcaption>OpenAI Platform Onboarding &mdash; 极简单栏式：API Key 展示 + 语言标签切换 + Python 代码示例 + Continue 按钮 <span class="source-tag">Refero</span></figcaption>
+  </figure>
+
+  <div class="callout callout-amber">
+    <div class="callout-title">&#9670; 设计准则 #6 &mdash; Time to First Success</div>
+    <p>Onboarding 的核心指标是"首次成功所需时间"（TTFS）。最佳实践：(1) 自动生成凭证，而非要求用户手动创建；(2) 代码示例预填凭证，消除复制粘贴步骤；(3) 提供一键式验证操作（如"Send email"、"Make API call"）；(4) 成功后立即展示下一步引导而非结束页。</p>
+  </div>
+</section>
+
+<!-- ======================== CHAPTER 3 ======================== -->
+<section class="section" id="ch3">
+  <div class="chapter-illo">
+    <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Notion-style brain / lightbulb illustration for Mental Models -->
+      <!-- Lightbulb outline -->
+      <path d="M60 8C47 8 37 18 37 30c0 8 4 14 10 18 2 1.5 3 4 3 7v3h20v-3c0-3 1-5.5 3-7 6-4 10-10 10-18 0-12-10-22-23-22z" stroke="#A78BFA" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+      <!-- Filament inside bulb -->
+      <path d="M53 32c2-4 5-5 7-2s5 2 7-2" stroke="#F59E0B" stroke-width="1.8" stroke-linecap="round" fill="none" />
+      <!-- Bulb base lines -->
+      <line x1="50" y1="58" x2="70" y2="58" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" />
+      <line x1="52" y1="62" x2="68" y2="62" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" />
+      <line x1="55" y1="66" x2="65" y2="66" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" />
+      <!-- Glow rays -->
+      <line x1="60" y1="2" x2="60" y2="6" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+      <line x1="80" y1="10" x2="77" y2="13" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+      <line x1="40" y1="10" x2="43" y2="13" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+      <line x1="86" y1="28" x2="82" y2="28" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+      <line x1="34" y1="28" x2="38" y2="28" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" opacity="0.6" />
+      <!-- Small thought bubbles -->
+      <circle cx="22" cy="44" r="3.5" stroke="#6366F1" stroke-width="1.5" fill="none" opacity="0.5" />
+      <circle cx="16" cy="52" r="2" stroke="#6366F1" stroke-width="1.2" fill="none" opacity="0.4" />
+      <circle cx="98" cy="44" r="3.5" stroke="#6366F1" stroke-width="1.5" fill="none" opacity="0.5" />
+      <circle cx="104" cy="52" r="2" stroke="#6366F1" stroke-width="1.2" fill="none" opacity="0.4" />
+      <!-- Gear icon (cognitive) -->
+      <circle cx="102" cy="18" r="6" stroke="#3ECF8E" stroke-width="1.5" fill="none" opacity="0.5" />
+      <circle cx="102" cy="18" r="2.5" fill="#3ECF8E" opacity="0.3" />
+      <circle cx="18" cy="18" r="6" stroke="#3ECF8E" stroke-width="1.5" fill="none" opacity="0.5" />
+      <circle cx="18" cy="18" r="2.5" fill="#3ECF8E" opacity="0.3" />
+    </svg>
+  </div>
+  <div class="section-label">Chapter 03</div>
+  <h2 class="section-title">心理模型推导 &mdash; Mental Models</h2>
+
+  <p class="lead">
+    为什么开发者偏好这些设计？答案不在于美学偏好，而在于开发者独特的认知模式和工作环境。以下三个心理模型解释了标杆产品设计决策背后的深层逻辑。
+  </p>
+
+  <!-- 3.1 -->
+  <h3 id="ch3-1">3.1 认知负荷最小化原则</h3>
+
+  <p>
+    开发者在使用 Developer Center 时，通常处于<strong>"任务导向"的认知状态</strong> &mdash; 他们不是在"浏览"，而是在"寻找解决方案"。任何增加认知负荷的设计都会被感知为"阻碍"。
+  </p>
+
+  <h4>标杆产品如何减少认知负荷</h4>
+  <ul>
+    <li><strong>信息层级的可预测性</strong>：Vercel 和 Stripe 的文档页使用完全一致的排版层级 &mdash; H1 是页面标题、H2 是章节、H3 是子章节、代码块始终深色背景。这种一致性让开发者在任何页面都能"零学习成本"地定位信息。</li>
+    <li><strong>视觉噪音的消除</strong>：Linear 的界面几乎没有装饰性元素 &mdash; 没有渐变、没有插图、没有复杂的图标系统。每一个视觉元素都承载功能含义。</li>
+    <li><strong>进度状态的即时可见</strong>：Resend 在 onboarding 中使用垂直时间线 + 状态指示器（绿色完成、灰色未完成），让用户在任何时刻都能知道"我在哪里"和"还需要做什么"。</li>
+  </ul>
+
+  <div class="callout callout-purple">
+    <div class="callout-title">&#9670; 心理学基础 &mdash; Miller's Law & Hick's Law</div>
+    <p>Miller's Law 指出工作记忆容量约为 7&plusmn;2 个信息块。标杆产品的侧栏导航分组（通常 5-7 个顶级类别）正是对此的实践。Hick's Law 表明选择数量增加会对数增加决策时间，这解释了为何 Linear 将所有操作收敛到 CMD+K &mdash; 用搜索替代选择。</p>
+  </div>
+
+  <!-- 3.2 -->
+  <h3 id="ch3-2">3.2 确定性反馈系统</h3>
+
+  <p>
+    开发者对"不确定性"的容忍度极低。在编码工作中，每一个操作都有确定的输出（编译成功/失败、测试通过/不通过）。这种思维模式迁移到了界面交互的期望中。
+  </p>
+
+  <h4>确定性反馈的实现方式</h4>
+
+  <div class="screenshot-grid">
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/enode.com/desktop/0b943fec-29e6-4afe-8c36-944f0e17acc2_preview.jpg" alt="Enode API Credentials Management" loading="lazy">
+      <figcaption>Enode &mdash; API 凭证管理页：密钥生成后金色成功消息条 + 一键复制 + Regenerate 按钮 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+    <figure class="screenshot-figure">
+      <img src="https://images.refero.design/screenshots/twelvelabs.io/desktop/1869ac06-2dad-4634-8579-428322669d42_preview.jpg" alt="TwelveLabs API Key Management" loading="lazy">
+      <figcaption>TwelveLabs &mdash; API Key + SDK 双卡片并列：Python/JS 代码示例各占一栏，复制图标内嵌 <span class="source-tag">Refero</span></figcaption>
+    </figure>
+  </div>
+
+  <div class="comparison-grid">
+    <div class="comparison-card">
+      <h4 style="margin-top:0;">即时视觉确认</h4>
+      <p style="font-size:0.85rem;">
+        <strong>Resend</strong> 的复制按钮点击后变为勾选图标 &check; 并持续 1.5 秒；API Key 生成后以<strong>金色/绿色消息条</strong>展示"Secret generated successfully"。<br><br>
+        <strong>Enode</strong> 的 API 凭证管理页面在重新生成密钥后立即显示黄色背景的成功消息条。
+      </p>
+    </div>
+    <div class="comparison-card">
+      <h4 style="margin-top:0;">状态的二元表达</h4>
+      <p style="font-size:0.85rem;">
+        <strong>Enode</strong> 使用绿色/灰色 Toggle Switch 表示设备状态（Reachable / Not Reachable），每个状态有且仅有两种可能。<br><br>
+        <strong>Vercel</strong> 的 API 文档中，HTTP 方法使用彩色 Badge 标识：紫色 POST、蓝色 GET、红色 DELETE &mdash; 每种方法有唯一颜色，不存在歧义。
+      </p>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <div class="callout-title">&#9670; 设计准则 #7 &mdash; 每个操作都需要回声</div>
+    <p>所有用户操作必须在 200ms 内获得视觉反馈。成功操作使用短暂的状态变化（图标转换、颜色脉冲）；失败操作使用持久的错误消息（红色消息条、内联错误文本）。"无反馈"等同于"系统故障"&mdash; 在开发者的心理模型中不存在"静默成功"。</p>
+  </div>
+
+  <!-- 3.3 -->
+  <h3 id="ch3-3">3.3 效率优于装饰</h3>
+
+  <p>
+    这是贯穿所有标杆产品最根本的设计哲学。开发者工具的美学不来自装饰，而来自<strong>功能的精确性</strong>。
+  </p>
+
+  <h4>"减法设计"的证据</h4>
+
+  <figure class="screenshot-figure">
+    <img src="https://images.refero.design/screenshots/parallel.ai/desktop/9fa09ca3-fcdb-448e-9dc1-fdaa17a3a21d_preview.jpg" alt="Parallel AI Developer Chat API" loading="lazy">
+    <figcaption>Parallel AI &mdash; Chat API 开发者控制台。纯黑背景 + 橙色强调色，零装饰性元素，每个视觉元素均承载功能含义 <span class="source-tag">Refero</span></figcaption>
+  </figure>
+  <ul>
+    <li><strong>Vercel</strong>：整个文档站没有使用任何插图或装饰性图形。信息卡片仅使用框架 Logo + 文字 + 操作按钮，没有描述性配图。</li>
+    <li><strong>Linear</strong>：Changelog 弹窗内仅包含截图 + 纯文本说明 + 蓝色链接。没有动画、没有图标矩阵、没有庆祝性视觉。</li>
+    <li><strong>Resend</strong>：Onboarding 页面的视觉焦点完全在代码块和操作按钮上，页面装饰性元素为零。唯一的色彩使用在功能性位置（绿色步骤指示器、深色代码块）。</li>
+    <li><strong>Stripe</strong>：其 API 文档被开发者社区视为"金标准"，核心原因是：<strong>每一行文字都在解答开发者的具体问题</strong>，没有市场话术、没有产品宣传。</li>
+  </ul>
+
+  <p>
+    这种极简不是设计师的偷懒，而是对开发者时间的尊重。每一个多余的视觉元素都意味着开发者需要多花 50-100ms 决定它是否与自己的任务相关。在一天中，这些毫秒累积为可感知的效率损失。
+  </p>
+
+  <div class="callout callout-red">
+    <div class="callout-title">&#9670; 反面模式警告</div>
+    <p>以下设计在开发者工具中应严格避免：(1) 纯装饰性插图 &mdash; 除非它直接解释一个技术概念；(2) 市场营销话术 &mdash; "awesome"、"powerful"、"seamless" 等词汇在技术文档中会降低可信度；(3) 过多的颜色使用 &mdash; 超过 3 种有含义的颜色会引发认知混乱；(4) 隐藏默认值 &mdash; 开发者需要看到所有参数的默认值，而非在悬停后才显示。</p>
+  </div>
+</section>
+
+<!-- ======================== CHAPTER 4 ======================== -->
+<section class="section" id="ch4">
+  <div class="chapter-illo">
+    <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Notion-style comparison grid / matrix illustration -->
+      <!-- Grid frame -->
+      <rect x="20" y="10" width="80" height="60" rx="4" stroke="#6366F1" stroke-width="2" fill="none" />
+      <!-- Horizontal dividers -->
+      <line x1="20" y1="26" x2="100" y2="26" stroke="#6366F1" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5" />
+      <line x1="20" y1="42" x2="100" y2="42" stroke="#6366F1" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5" />
+      <line x1="20" y1="56" x2="100" y2="56" stroke="#6366F1" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5" />
+      <!-- Vertical dividers -->
+      <line x1="46" y1="10" x2="46" y2="70" stroke="#6366F1" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5" />
+      <line x1="72" y1="10" x2="72" y2="70" stroke="#6366F1" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5" />
+      <!-- Header row highlight -->
+      <rect x="20" y="10" width="80" height="16" rx="4" fill="#6366F1" opacity="0.1" />
+      <!-- Checkmarks in cells -->
+      <path d="M52 33l3 3 6-6" stroke="#3ECF8E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M78 33l3 3 6-6" stroke="#3ECF8E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M26 48l3 3 6-6" stroke="#3ECF8E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M78 48l3 3 6-6" stroke="#3ECF8E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M52 62l3 3 6-6" stroke="#3ECF8E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- X marks in other cells -->
+      <path d="M28 33l6 6m0-6l-6 6" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" opacity="0.5" />
+      <path d="M54 48l6 6m0-6l-6 6" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" opacity="0.5" />
+      <!-- Header dots -->
+      <circle cx="33" cy="18" r="2.5" fill="#A78BFA" opacity="0.6" />
+      <circle cx="59" cy="18" r="2.5" fill="#F59E0B" opacity="0.6" />
+      <circle cx="86" cy="18" r="2.5" fill="#3ECF8E" opacity="0.6" />
+      <!-- Decorative stars -->
+      <path d="M8 20l2 4 4 0.5-3 2.8 0.7 4-3.7-2-3.7 2 0.7-4-3-2.8 4-0.5z" fill="#F59E0B" opacity="0.3" />
+      <path d="M112 55l1.5 3 3 0.4-2.2 2 0.5 3-2.8-1.5-2.8 1.5 0.5-3-2.2-2 3-0.4z" fill="#F59E0B" opacity="0.3" />
+    </svg>
+  </div>
+  <div class="section-label">Chapter 04</div>
+  <h2 class="section-title">标杆产品横向对比矩阵</h2>
+
+  <p>
+    以下矩阵从多个维度对比了六款标杆产品在开发者中心设计上的差异化策略，帮助识别可借鉴的最佳实践组合。
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:110px;">维度</th>
+          <th>Vercel</th>
+          <th>Stripe</th>
+          <th>Resend</th>
+          <th>Linear</th>
+          <th>Supabase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>默认主题</strong></td>
+          <td>Dark</td>
+          <td>Light (Dark 代码块)</td>
+          <td>Light + Dark</td>
+          <td>Dark</td>
+          <td>Dark</td>
+        </tr>
+        <tr>
+          <td><strong>文档布局</strong></td>
+          <td>三栏式</td>
+          <td>三栏式</td>
+          <td>两栏式 + Stepper</td>
+          <td>两栏式 + Modal</td>
+          <td>三栏式</td>
+        </tr>
+        <tr>
+          <td><strong>CMD+K 支持</strong></td>
+          <td>&check;</td>
+          <td>&check;</td>
+          <td>&cross; (标准搜索)</td>
+          <td>&check; (核心入口)</td>
+          <td>&check;</td>
+        </tr>
+        <tr>
+          <td><strong>代码多语言切换</strong></td>
+          <td>&check;</td>
+          <td>&check;</td>
+          <td>&check; (11种)</td>
+          <td>N/A</td>
+          <td>&check;</td>
+        </tr>
+        <tr>
+          <td><strong>API Playground</strong></td>
+          <td>&cross;</td>
+          <td>&cross; (但有 Stripe Shell)</td>
+          <td>&cross;</td>
+          <td>N/A</td>
+          <td>&check; (SQL Editor)</td>
+        </tr>
+        <tr>
+          <td><strong>一键复制反馈</strong></td>
+          <td>&check; 图标切换</td>
+          <td>&check; Tooltip</td>
+          <td>&check; 图标切换 + Toast</td>
+          <td>&check; 图标切换</td>
+          <td>&check; 图标切换</td>
+        </tr>
+        <tr>
+          <td><strong>强调色策略</strong></td>
+          <td>极简黑白</td>
+          <td>Blurple 点缀</td>
+          <td>Black/White 极简</td>
+          <td>Indigo 功能性</td>
+          <td>Green 品牌色</td>
+        </tr>
+        <tr>
+          <td><strong>Onboarding 步骤数</strong></td>
+          <td>3-4 步</td>
+          <td>3 步</td>
+          <td>2 步 (极简)</td>
+          <td>N/A</td>
+          <td>3-4 步</td>
+        </tr>
+        <tr>
+          <td><strong>侧栏宽度</strong></td>
+          <td>~250px</td>
+          <td>~240px</td>
+          <td>~220px</td>
+          <td>~220px</td>
+          <td>~260px</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-green">
+    <div class="callout-title">&#9670; 最佳实践组合建议</div>
+    <p>综合各产品优势，推荐的 Developer Center 设计策略组合为：<strong>Vercel 的三栏文档布局</strong> + <strong>Stripe 的可访问色彩系统</strong> + <strong>Resend 的极简 Onboarding 流程</strong> + <strong>Linear 的 CMD+K 核心导航</strong> + <strong>Supabase 的交互式 Playground</strong>。</p>
+  </div>
+</section>
+
+<!-- ======================== CHAPTER 5 ======================== -->
+<section class="section" id="ch5">
+  <div class="chapter-illo">
+    <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Notion-style compass / guiding star illustration for Design Principles -->
+      <!-- Compass outer ring -->
+      <circle cx="60" cy="40" r="26" stroke="#6366F1" stroke-width="2" fill="none" />
+      <circle cx="60" cy="40" r="22" stroke="#A78BFA" stroke-width="1" stroke-dasharray="4 3" fill="none" opacity="0.4" />
+      <!-- Compass needle (N-S) -->
+      <polygon points="60,16 55,40 60,38 65,40" fill="#F87171" opacity="0.7" />
+      <polygon points="60,64 55,40 60,42 65,40" fill="#94A3B8" opacity="0.5" />
+      <!-- Compass needle (E-W) -->
+      <polygon points="84,40 60,35 62,40 60,45" fill="#3ECF8E" opacity="0.5" />
+      <polygon points="36,40 60,35 58,40 60,45" fill="#F59E0B" opacity="0.5" />
+      <!-- Center dot -->
+      <circle cx="60" cy="40" r="3" fill="#6366F1" opacity="0.8" />
+      <circle cx="60" cy="40" r="1.5" fill="#F5F5F7" />
+      <!-- Cardinal direction markers -->
+      <text x="60" y="10" font-family="Inter, system-ui" font-size="7" fill="#A78BFA" text-anchor="middle" opacity="0.7">N</text>
+      <text x="60" y="76" font-family="Inter, system-ui" font-size="7" fill="#A78BFA" text-anchor="middle" opacity="0.7">S</text>
+      <text x="91" y="43" font-family="Inter, system-ui" font-size="7" fill="#A78BFA" text-anchor="middle" opacity="0.7">E</text>
+      <text x="29" y="43" font-family="Inter, system-ui" font-size="7" fill="#A78BFA" text-anchor="middle" opacity="0.7">W</text>
+      <!-- Decorative guideline dots -->
+      <circle cx="14" cy="14" r="2" fill="#3ECF8E" opacity="0.35" />
+      <circle cx="10" cy="22" r="1.5" fill="#F59E0B" opacity="0.3" />
+      <circle cx="18" cy="8" r="1" fill="#6366F1" opacity="0.3" />
+      <circle cx="106" cy="14" r="2" fill="#3ECF8E" opacity="0.35" />
+      <circle cx="110" cy="22" r="1.5" fill="#F59E0B" opacity="0.3" />
+      <circle cx="102" cy="8" r="1" fill="#6366F1" opacity="0.3" />
+      <circle cx="14" cy="66" r="2" fill="#A78BFA" opacity="0.3" />
+      <circle cx="106" cy="66" r="2" fill="#A78BFA" opacity="0.3" />
+      <!-- Small sparkle accents -->
+      <path d="M16 40l-2 0 2 0m0-2 0 2 0 2 0-2" stroke="#F59E0B" stroke-width="1" stroke-linecap="round" opacity="0.4" />
+      <path d="M104 40l-2 0 2 0m0-2 0 2 0 2 0-2" stroke="#F59E0B" stroke-width="1" stroke-linecap="round" opacity="0.4" />
+    </svg>
+  </div>
+  <div class="section-label">Chapter 05</div>
+  <h2 class="section-title">设计准则总结 &mdash; Design Principles</h2>
+
+  <p>
+    以下七条准则从前文分析中提炼而成，作为 Developer Center 重构的设计决策框架。
+  </p>
+
+  <div class="principle-grid">
+    <div class="principle-card">
+      <div class="icon" style="color: var(--color-accent);">&#9632;</div>
+      <h4>#1 克制的色彩经济学</h4>
+      <p>仅一种强调色，面积 &le;5%。灰度分层替代边框。</p>
+    </div>
+    <div class="principle-card">
+      <div class="icon" style="color: var(--color-success);">&#9632;</div>
+      <h4>#2 场景决定密度</h4>
+      <p>文档用宽松间距，操作面板用紧凑间距。</p>
+    </div>
+    <div class="principle-card">
+      <div class="icon" style="color: var(--color-purple);">&#9632;</div>
+      <h4>#3 双字体栈是刚需</h4>
+      <p>UI字体 + Code字体，正文比代码大 1-2px。</p>
+    </div>
+    <div class="principle-card">
+      <div class="icon" style="color: #F59E0B;">&#9632;</div>
+      <h4>#4 CMD+K 是基础设施</h4>
+      <p>全局搜索面板是核心导航，非附加功能。</p>
+    </div>
+    <div class="principle-card">
+      <div class="icon" style="color: #EC4899;">&#9632;</div>
+      <h4>#5 代码是一等公民</h4>
+      <p>一键复制 + 多语言切换 + 深色语法高亮。</p>
+    </div>
+    <div class="principle-card">
+      <div class="icon" style="color: var(--color-warning);">&#9632;</div>
+      <h4>#6 Time to First Success</h4>
+      <p>自动生成凭证、预填代码、一键验证。</p>
+    </div>
+    <div class="principle-card">
+      <div class="icon" style="color: var(--color-error);">&#9632;</div>
+      <h4>#7 每个操作都需要回声</h4>
+      <p>200ms内视觉反馈。无静默成功。</p>
+    </div>
+  </div>
+
+  <h3>技术规格速查表</h3>
+  <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-lg); margin: var(--space-lg) 0;">
+    <div class="spec-row">
+      <div class="spec-label">深色模式背景</div>
+      <div class="spec-value"><code>#0A0A0B</code> ~ <code>#121212</code>，分 4-5 个灰度层级</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">浅色模式背景</div>
+      <div class="spec-value"><code>#FFFFFF</code> 主内容 / <code>#FAFAFA</code> 页面 / <code>#F5F5F7</code> 侧栏</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">UI 字体</div>
+      <div class="spec-value">Inter 或 System UI Stack，14-16px，weight 400-600</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">代码字体</div>
+      <div class="spec-value">JetBrains Mono / Fira Code / Source Code Pro，13-14px</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">文档行高</div>
+      <div class="spec-value">1.6-1.7（阅读场景）/ 1.4-1.5（操作面板）</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">侧栏宽度</div>
+      <div class="spec-value">220-260px 固定</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">内容区最大宽度</div>
+      <div class="spec-value">880-1100px</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">区块间距</div>
+      <div class="spec-value">文档 48-64px / Dashboard 24-32px</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">元素间距</div>
+      <div class="spec-value">8-24px，基于 8px 栅格</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">代码块背景</div>
+      <div class="spec-value"><code>#0B0B0C</code>（浅色主题下也保持深色）</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">Border Radius</div>
+      <div class="spec-value">卡片 12-16px / 按钮 8-10px / 内联代码 4px</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">反馈延迟上限</div>
+      <div class="spec-value">视觉反馈 &le;200ms / 操作完成 toast 1.5-2s 自动消失</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-label">对比度标准</div>
+      <div class="spec-value">正文 &ge;4.5:1 / 大标题 &ge;3:1（WCAG 2.0 AA）</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== CHAPTER 6 ======================== -->
+<section class="footnotes" id="ch6">
+  <h2>参考来源 &mdash; References</h2>
+  <ol>
+    <li>Vercel Documentation (vercel.com/docs) &mdash; 三栏文档布局、API Reference 界面分析</li>
+    <li>Stripe Blog: "Designing Accessible Color Systems" &mdash; 可访问色彩系统的分级方法论</li>
+    <li>Resend Onboarding Flow (resend.com/onboarding) &mdash; 两步式开发者引导流程</li>
+    <li>Linear App (linear.app) &mdash; Command Palette 交互模式、深色主题策略</li>
+    <li>Supabase Dashboard (supabase.com/dashboard) &mdash; 开发者 Dashboard 布局</li>
+    <li>OpenAI Platform Onboarding (platform.openai.com) &mdash; API Key 生成 + 代码示例集成</li>
+    <li>Cohere Playground (dashboard.cohere.com/playground) &mdash; 双面板 API 交互体验</li>
+    <li>Enode Developers (developers.enode.com) &mdash; 深色主题 API 凭证管理界面</li>
+    <li>TwelveLabs API Key Management (twelvelabs.io) &mdash; SDK 双卡片并列布局</li>
+    <li>Cal.com Developer Docs (cal.com/docs) &mdash; 文档导航与信息架构</li>
+    <li>Maggie Appleton: "Command K Bars" &mdash; Command Palette 设计模式研究</li>
+    <li>Refero Design Database (refero.design) &mdash; 开发者产品 UI 截图与交互流程数据库</li>
+    <li>WCAG 2.0 Accessibility Guidelines &mdash; 对比度标准参考</li>
+  </ol>
+</section>
+
+<div style="text-align: center; padding: var(--space-2xl) 0; color: var(--color-text-tertiary); font-size: 0.8rem; border-top: 1px solid var(--color-border); margin-top: var(--space-xl);">
+  Developer Tools Design Principles &mdash; 专业开发者工具的设计原则 &mdash; 2026.04<br>
+  Based on analysis of Vercel, Stripe, Supabase, Linear, Railway, Resend and 10+ developer products
+</div>
+
+</div><!-- end page-wrapper -->
+</body>
+</html>
